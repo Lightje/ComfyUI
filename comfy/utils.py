@@ -875,6 +875,7 @@ def get_tiled_scale_steps(width, height, tile_x, tile_y, overlap):
 @torch.inference_mode()
 def tiled_scale_multidim(samples, function, tile=(64, 64), overlap=8, upscale_amount=4, out_channels=3, output_device="cpu", downscale=False, index_formulas=None, pbar=None):
     dims = len(tile)
+    samples = samples.contiguous()  # Ensure input tensor is contiguous
 
     if not (isinstance(upscale_amount, (tuple, list))):
         upscale_amount = [upscale_amount] * dims
@@ -936,7 +937,7 @@ def tiled_scale_multidim(samples, function, tile=(64, 64), overlap=8, upscale_am
 
         # handle entire input fitting in a single tile
         if all(s.shape[d+2] <= tile[d] for d in range(dims)):
-            output[b:b+1] = function(s).to(output_device)
+            output[b:b+1] = function(s.contiguous()).to(output_device)  # Ensure single tile is contiguous
             if pbar is not None:
                 pbar.update(1)
             continue
@@ -956,7 +957,7 @@ def tiled_scale_multidim(samples, function, tile=(64, 64), overlap=8, upscale_am
                 s_in = s_in.narrow(d + 2, pos, l)
                 upscaled.append(round(get_pos(d, pos)))
 
-            ps = function(s_in).to(output_device)
+            ps = function(s_in.contiguous()).to(output_device)  # Ensure tiled segment is contiguous
             mask = torch.ones_like(ps)
 
             for d in range(2, dims + 2):
